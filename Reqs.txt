@@ -1,0 +1,94 @@
+I want a live website - 
+
+1)I need it to update a table with new rows on the website live: (all text in black)
+---table columns (no names needed): 
+col 0 : minute - the min or time at which the current data is drawn
+col 1 : XXXXXce - Change in OI (CHNG IN OI)
+col 2 : YYYYYpe - Change in OI (CHNG IN OI)
+col 3 : difference from current {XXXXXce - Change in OI}=A AND the immediate above row {XXXXXce - Change in OI}=B which is A-B. 
+col 4 : difference from current {YYYYYpe - Change in OI}=C AND the immediate above row {YYYYYpe - Change in OI}=D which is C-D.
+col 5 : {col 3}=E minus {col 4}=F which is E-F
+col 6 : XXXXXce - Vol
+col 7 : YYYYYpe - Vol
+col 8 : ratio of current {XXXXXce - Vol}=p and AND the immediate above row {XXXXXce - Vol}=q which is p/q.
+col 9 : ratio of current {YYYYYpe - Vol}=x and AND the immediate above row {YYYYYpe - Vol}=y which is x/y.
+col 10 : differennce between {col 8}=I and {col 9}=J which is I-J.
+col 11 : XXXXXce - price
+col 12 : XXXXXpe - price
+
+2) the times at which it draws data is :
+row 1 : 9:18am
+row 2 : 9:28am
+row 3 : 9:43am
+row 4 : 9:58am
+row 5 : 10:13am
+row 6 : 10:28am
+row 7 : 10:43am
+row 8 : 10:58am
+row 9 : 11:13am
+row 10 : 11:28am
+row 11 : 11:43am
+row 12 : 11:58am
+row 13 : 12:13am
+row 14 : 12:28am
+row 15 : 12:43am
+row 16 : 12:58am
+row 17 : 13:13am
+row 18 : 13:28am
+row 19 : 13:43am
+row 20 : 13:58am
+row 21 : 14:13am
+row 22 : 14:28am
+row 23 : 14:43am
+row 24 : 14:58am
+row 25 : 15:13am
+row 26 : 15:28am
+row 27 : 15:40am
+
+3) How to draw the data :
+col 0 has the min values listed in 2) 
+col 3,4,5,8,9,10 are calculated based on drawn data of 1,2,6,7,11,12.
+col 1,2,6,7 = draw this data from the site : "nseindia.com/option-chain" : 1,6 is Change in oi and vol values of call for strike price mentioned by user and 2,7 are change in oi and vol values for a strike price mentioned by the user.
+col 11,12 = <see the attached picture> so the user will give an input of 13 digits say N put it in this : "kite.zerodha.com/multiplechart/ext/ciq?multiple=2&mc=N" and ull see smth like the attached picture. In that go to the "NIFTY <date> <strike price> CE" side (eg: NIFTY 15th SEP 23500 CE) and record the open price(at the row's time see the candel, if it is red, collect the open price which is the price at the top of red candel (right at where open wick ends) and if the candel is green, collect the open price which is the price at the bottom of green candel.) also for the time 15:40 collect the closing price (which is the bottom of the red candel at that time (if it is red) or top of teh green candel if it is green.)
+{back story - so like u actually need credentials to login to this page in kite, but like once done u can open the site again and again or like get info from it..by opening it or like tell em what to do}
+
+4) So i need you to parallelly update this data onto google_sheets if possible with 4 more rows before column 0, call it columns A,B,C,D.
+Col C : Date in form of - eg: "08-Sep"
+Col D : Day in 3 letters - eg: "Wed"
+Col A : leave blank ill fill in later
+col B : leave blank ill fill in later
+5) leave a line blank after collecting a days data in the sheet
+
+6) Highlight the col0 in light yellow (not too light)
+7) Highlight col 1,2,6,7 in light orange (not too light)
+8) Highlight col 11,12 row 1 : yellow(same as col0)
+9) Highlight other values in col 11,12 by following the rules below:
+{'curr' means curr value at the time in curr time row in the mentioned col; 'prev' means value in the same mentioned col but like in row immediately above curr}
+and the colour after -> in the rules denotes the colour using which the 'curr' value 'cell'(not column whole) of the 'col mentioned' gets higlighted in.
+rule 0a: if col 11; curr=prev -> yellow,col 11
+rule 0b: if col 12; curr=prev -> yellow,col 12
+rule 1a: if col 1; curr>prev && if col 11; curr>prev -> green,col 11
+rule 1b: if col 2; curr>prev && if col 12; curr>prev -> green,col 12
+rule 2a: if col 1; curr>prev && if col 11; curr<prev -> red,col 11
+rule 2b: if col 2; curr>prev && if col 12; curr<prev -> red,col 12
+rule 3a: if col 1; curr<prev && if col 11; curr<prev -> blue,col 11
+rule 3b: if col 2; curr<prev && if col 12; curr<prev -> blue,col 12
+rule 4a: if col 1; curr<prev && if col 11; curr>prev -> purple,col 11
+rule 4b: if col 2; curr<prev && if col 12; curr>prev -> purple,col 12
+10) Highlight in red in col 1,col 2 specific cells (one cell in col 1 an one in col 2) where 'first time' the contiguous ness(continually inc or dec pattern) is disrupted.
+
+11)all these 10 above points are to be applied for data taken in a day and same changes(be it eg:colour highlights of the day) are to applied and shown as table in the dashboard and parallel updates of rows on the sheet.
+
+12) user inputs(will have placeholders):
+- strike price for CE
+- strike price for PE
+
+
+
+
+
+
+
+
+
+

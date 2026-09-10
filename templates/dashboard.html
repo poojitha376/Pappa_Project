@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pappa — live options table</title>
+<style>
+  :root { --line:#d9d9d9; --muted:#666; --bg:#fafafa; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+         color:#000; background:var(--bg); }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); background:#fff; }
+  h1 { margin:0 0 8px; font-size:16px; }
+  .controls { display:flex; flex-wrap:wrap; gap:12px 18px; align-items:flex-end; }
+  .field { display:flex; flex-direction:column; gap:2px; }
+  .field label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  input, select, button { font:inherit; padding:5px 8px; border:1px solid var(--line); border-radius:4px; background:#fff; }
+  button { cursor:pointer; background:#111; color:#fff; border-color:#111; }
+  button:disabled { opacity:.5; cursor:default; }
+  .status { margin-top:8px; font-size:12px; color:var(--muted); display:flex; flex-wrap:wrap; gap:14px; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; vertical-align:middle; margin-right:5px; }
+  .dot.ok { background:#2ea043; } .dot.warn { background:#d29922; } .dot.bad { background:#cf222e; } .dot.idle { background:#999; }
+  .wrap { padding:16px; overflow-x:auto; }
+  table { border-collapse:collapse; background:#fff; }
+  th, td { border:1px solid var(--line); padding:4px 8px; text-align:right; white-space:nowrap; }
+  th { background:#f0f0f0; font-size:11px; position:sticky; top:0; }
+  th .n { font-weight:700; } th .d { display:block; font-weight:400; color:var(--muted); font-size:10px; max-width:120px; white-space:normal; }
+  td.time { text-align:center; font-variant-numeric:tabular-nums; }
+  td.meta { text-align:center; color:var(--muted); font-size:11px; border-right:2px solid #bbb; }
+  tr.missed td.meta { color:#cf222e; }
+  .legend { margin:10px 0 0; font-size:11px; color:var(--muted); display:flex; flex-wrap:wrap; gap:10px; }
+  .sw { display:inline-block; width:12px; height:12px; border:1px solid #0003; vertical-align:middle; margin-right:4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Pappa — live options table</h1>
+  <div class="controls">
+    <div class="field">
+      <label for="ce">CE strike</label>
+      <input id="ce" type="number" step="50" placeholder="e.g. 23500" style="width:120px">
+    </div>
+    <div class="field">
+      <label for="pe">PE strike</label>
+      <input id="pe" type="number" step="50" placeholder="e.g. 23600" style="width:120px">
+    </div>
+    <button id="save">Save strikes</button>
+    <div class="field">
+      <label for="date">Day</label>
+      <select id="date" style="width:150px"></select>
+    </div>
+    <span id="savemsg" style="font-size:12px;color:var(--muted)"></span>
+  </div>
+  <div class="status" id="status"></div>
+</header>
+
+<div class="wrap">
+  <table id="tbl">
+    <thead><tr id="head"></tr></thead>
+    <tbody id="body"></tbody>
+  </table>
+  <div class="legend" id="legend"></div>
+</div>
+
+<script>
+const COLS = [
+  ["0","minute / time"],
+  ["1","CE chng in OI"],
+  ["2","PE chng in OI"],
+  ["3","col1 curr − prev"],
+  ["4","col2 curr − prev"],
+  ["5","col3 − col4"],
+  ["6","CE volume"],
+  ["7","PE volume"],
+  ["8","col6 curr ÷ prev"],
+  ["9","col7 curr ÷ prev"],
+  ["10","col8 − col9"],
+  ["11","CE price"],
+  ["12","PE price"],
+];
+const LEGEND = [
+  ["#F5D547","time / unchanged price"],
+  ["#F6A653","raw OI-change / volume"],
+  ["#79C879","OI↑ & price↑"],
+  ["#EE6B6B","OI↑ & price↓ / contiguity break"],
+  ["#6FA8F5","OI↓ & price↓"],
+  ["#B98BD9","OI↓ & price↑"],
+];
+
+const $ = s => document.querySelector(s);
+let strikesTouched = false;
+$("#ce").addEventListener("input", () => strikesTouched = true);
+$("#pe").addEventListener("input", () => strikesTouched = true);
+
+function buildHead() {
+  $("#head").innerHTML = '<th class="meta">#</th>' + COLS.map(
+    ([n,d]) => `<th><span class="n">${n}</span><span class="d">${d}</span></th>`).join("");
+  $("#legend").innerHTML = LEGEND.map(
+    ([c,t]) => `<span><span class="sw" style="background:${c}"></span>${t}</span>`).join("");
+}
+
+async function loadDates() {
+  const r = await fetch("/api/dates"); const j = await r.json();
+  const sel = $("#date"); const cur = sel.value;
+  sel.innerHTML = (j.dates || []).map(d =>
+    `<option value="${d}"${d===j.today?" (today)":""}>${d}${d===j.today?"  (today)":""}</option>`).join("");
+  if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+
+async function loadStatus() {
+  const r = await fetch("/api/status"); const s = await r.json();
+  const el = $("#status");
+  if (!s.running) { el.innerHTML = `<span><span class="dot idle"></span>${s.note||"not running"}</span>`; return; }
+  let feed = s.feed_fresh ? `<span class="dot ok"></span>feed live (${s.feed_age_s ?? "?"}s ago)`
+                          : `<span class="dot bad"></span>feed stale`;
+  const lc = s.last_capture
+    ? `row ${s.last_capture.row_index} @ ${s.last_capture.sched_time} → ${s.last_capture.status}`
+    : "no captures yet";
+  el.innerHTML = [
+    `<span>${feed}</span>`,
+    `<span>IST now: ${s.now?.slice(11,16) ?? "?"}</span>`,
+    `<span>${s.symbol} ${s.expiry ?? "expiry ?"}${s.lot_size ? " · lot " + s.lot_size : ""}</span>`,
+    `<span>strikes: CE ${s.ce_strike ?? "—"} / PE ${s.pe_strike ?? "—"}</span>`,
+    `<span>last: ${lc}</span>`,
+    s.simulate ? `<span><span class="dot warn"></span>SIMULATE MODE</span>` : "",
+  ].join("");
+  if (!strikesTouched) {
+    if (s.ce_strike != null && $("#ce").value === "") $("#ce").value = s.ce_strike;
+    if (s.pe_strike != null && $("#pe").value === "") $("#pe").value = s.pe_strike;
+  }
+}
+
+async function loadTable() {
+  const d = $("#date").value;
+  const r = await fetch("/api/table" + (d ? `?date=${encodeURIComponent(d)}` : ""));
+  const j = await r.json();
+  $("#body").innerHTML = (j.rows || []).map(row => {
+    const cells = COLS.map(([n]) => {
+      const i = +n;
+      const bg = row.colors[i] ? ` style="background:${row.colors[i]}"` : "";
+      const cls = i === 0 ? ' class="time"' : "";
+      return `<td${cls}${bg}>${row.text[i] ?? ""}</td>`;
+    }).join("");
+    const meta = row.status === "ok" ? "●" : row.status === "partial" ? "◐"
+              : row.status === "missed" ? "✕" : row.status === "error" ? "!" : "·";
+    return `<tr class="${row.status}"><td class="meta" title="${row.status}">${meta}</td>${cells}</tr>`;
+  }).join("");
+}
+
+async function refresh() {
+  await Promise.all([loadStatus(), loadDates(), loadTable()]);
+}
+
+$("#save").addEventListener("click", async () => {
+  const btn = $("#save"); btn.disabled = true; $("#savemsg").textContent = "saving…";
+  try {
+    const body = {
+      ce_strike: $("#ce").value === "" ? null : Number($("#ce").value),
+      pe_strike: $("#pe").value === "" ? null : Number($("#pe").value),
+    };
+    const r = await fetch("/api/config", {
+      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.detail || "error");
+    strikesTouched = false;
+    $("#savemsg").textContent = `saved — expiry ${j.expiry ?? "?"}`;
+    refresh();
+  } catch (e) {
+    $("#savemsg").textContent = "failed: " + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+$("#date").addEventListener("change", loadTable);
+
+buildHead();
+refresh();
+setInterval(refresh, 15000);
+</script>
+</body>
+</html>

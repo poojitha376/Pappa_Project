@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pappa — live options table</title>
+<style>
+  :root { --line:#d9d9d9; --muted:#666; --bg:#fafafa; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+         color:#000; background:var(--bg); }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); background:#fff; }
+  h1 { margin:0 0 8px; font-size:16px; }
+  .row { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; font-size:13px; }
+  select { font:inherit; padding:5px 8px; border:1px solid var(--line); border-radius:4px; background:#fff; }
+  .status { margin-top:8px; font-size:12px; color:var(--muted); display:flex; flex-wrap:wrap; gap:14px; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; vertical-align:middle; margin-right:5px; }
+  .dot.ok{background:#2ea043;} .dot.warn{background:#d29922;} .dot.bad{background:#cf222e;} .dot.idle{background:#999;}
+  a { color:#0969da; }
+  .wrap { padding:16px; overflow-x:auto; }
+  table { border-collapse:collapse; background:#fff; }
+  th, td { border:1px solid var(--line); padding:4px 8px; text-align:right; white-space:nowrap; }
+  th { background:#f0f0f0; font-size:11px; }
+  th .n { font-weight:700; } th .d { display:block; font-weight:400; color:var(--muted); font-size:10px; white-space:normal; max-width:120px; }
+  td.time { text-align:center; font-variant-numeric:tabular-nums; }
+  td.meta { text-align:center; color:var(--muted); font-size:11px; border-right:2px solid #bbb; }
+  tr.missed td.meta { color:#cf222e; }
+  .legend { margin:10px 0 0; font-size:11px; color:var(--muted); display:flex; flex-wrap:wrap; gap:10px; }
+  .sw { display:inline-block; width:12px; height:12px; border:1px solid #0003; vertical-align:middle; margin-right:4px; }
+  .note { margin:10px 0 0; font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Pappa — live options table</h1>
+  <div class="row">
+    <label>Day <select id="date"></select></label>
+    <span id="run"></span>
+  </div>
+  <div class="status" id="status"></div>
+  <div class="note" id="changenote"></div>
+</header>
+
+<div class="wrap">
+  <table id="tbl"><thead><tr id="head"></tr></thead><tbody id="body"></tbody></table>
+  <div class="legend" id="legend"></div>
+</div>
+
+<script>
+const COLS = [
+  ["0","minute / time"],["1","CE chng in OI"],["2","PE chng in OI"],
+  ["3","col1 curr − prev"],["4","col2 curr − prev"],["5","col3 − col4"],
+  ["6","CE volume"],["7","PE volume"],["8","col6 curr ÷ prev"],
+  ["9","col7 curr ÷ prev"],["10","col8 − col9"],["11","CE price"],["12","PE price"],
+];
+const LEGEND = [
+  ["#F5D547","time / unchanged price"],["#F6A653","raw OI-change / volume"],
+  ["#79C879","OI↑ & price↑"],["#EE6B6B","OI↑ & price↓ / contiguity break"],
+  ["#6FA8F5","OI↓ & price↓"],["#B98BD9","OI↓ & price↑"],
+];
+const $ = s => document.querySelector(s);
+const bust = () => "?t=" + Date.now();
+
+function repoLinks() {
+  // best-effort: https://USER.github.io/REPO/  ->  github.com/USER/REPO
+  const host = location.hostname, parts = location.pathname.split("/").filter(Boolean);
+  if (!host.endsWith("github.io")) return null;
+  const user = host.split(".")[0];
+  const repo = parts.length ? parts[0] : `${user}.github.io`;
+  return `https://github.com/${user}/${repo}/actions/workflows/collect.yml`;
+}
+
+function buildHead() {
+  $("#head").innerHTML = '<th class="meta">#</th>' + COLS.map(
+    ([n,d]) => `<th><span class="n">${n}</span><span class="d">${d}</span></th>`).join("");
+  $("#legend").innerHTML = LEGEND.map(
+    ([c,t]) => `<span><span class="sw" style="background:${c}"></span>${t}</span>`).join("");
+  const link = repoLinks();
+  $("#changenote").innerHTML = link
+    ? `To change strikes: <a href="${link}" target="_blank" rel="noopener">Run workflow</a> `
+      + `on GitHub (Actions → collect → Run workflow) and enter the new CE / PE strike, `
+      + `or edit <code>config.json</code> in the repo.`
+    : `To change strikes, run the <code>collect</code> workflow on GitHub with new inputs, `
+      + `or edit <code>config.json</code>.`;
+}
+
+async function loadIndex() {
+  const r = await fetch("data/index.json" + bust());
+  const j = await r.json();
+  const sel = $("#date"), cur = sel.value;
+  const dates = (j.dates || []).slice().reverse();
+  sel.innerHTML = dates.map(d => `<option value="${d}">${d}</option>`).join("");
+  if (cur && dates.includes(cur)) sel.value = cur;
+  return j;
+}
+
+async function loadDay() {
+  const d = $("#date").value;
+  if (!d) { $("#body").innerHTML = ""; $("#status").textContent = "no data yet"; return; }
+  const r = await fetch(`data/${d}.json` + bust());
+  const j = await r.json();
+  const run = j.run || {};
+  $("#run").textContent = `${run.expiry ? "expiry " + run.expiry : ""}`
+    + `${run.lot_size ? " · lot " + run.lot_size : ""}  ·  `
+    + `CE ${run.ce_strike ?? "—"} / PE ${run.pe_strike ?? "—"}`;
+
+  const captured = (j.rows || []).filter(x => x.status === "ok" || x.status === "partial").length;
+  const upd = j.updated_at ? j.updated_at.replace("T", " ").slice(0, 16) : "?";
+  const dot = captured ? "ok" : "idle";
+  $("#status").innerHTML =
+    `<span><span class="dot ${dot}"></span>${captured}/27 rows captured</span>`
+    + `<span>updated ${upd} IST</span>`;
+
+  $("#body").innerHTML = (j.rows || []).map(row => {
+    const cells = COLS.map(([n]) => {
+      const i = +n;
+      const bg = row.colors[i] ? ` style="background:${row.colors[i]}"` : "";
+      const cls = i === 0 ? ' class="time"' : "";
+      return `<td${cls}${bg}>${row.text[i] ?? ""}</td>`;
+    }).join("");
+    const meta = row.status === "ok" ? "●" : row.status === "partial" ? "◐"
+              : row.status === "missed" ? "✕" : row.status === "error" ? "!" : "·";
+    return `<tr class="${row.status}"><td class="meta" title="${row.status}">${meta}</td>${cells}</tr>`;
+  }).join("");
+}
+
+async function refresh() {
+  try { await loadIndex(); await loadDay(); }
+  catch (e) { $("#status").textContent = "load error: " + e.message; }
+}
+$("#date").addEventListener("change", loadDay);
+buildHead();
+refresh();
+setInterval(refresh, 60000);
+</script>
+</body>
+</html>

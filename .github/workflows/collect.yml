@@ -1,0 +1,74 @@
+name: collect
+
+on:
+  # Every 5 min during NIFTY market hours (03:00-11:59 UTC = 08:30-17:29 IST), Mon-Fri.
+  # capture.py picks the schedule slot nearest to "now", so lagging/overlapping runs
+  # are harmless and each of the 27 slots gets several attempts.
+  schedule:
+    - cron: "*/5 3-10 * * 1-5"       # 08:30-16:25 IST, every 5 min
+    - cron: "20 10 * * 1-5"          # 15:50 IST: finalize (mark leftover rows 'missed')
+  workflow_dispatch:
+    inputs:
+      ce_strike:
+        description: "CE strike (leave blank to keep current)"
+        required: false
+      pe_strike:
+        description: "PE strike (leave blank to keep current)"
+        required: false
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r requirements.txt
+
+      - name: Set strikes (manual run only)
+        if: github.event_name == 'workflow_dispatch' && (inputs.ce_strike != '' || inputs.pe_strike != '')
+        env:
+          CE_IN: ${{ inputs.ce_strike }}
+          PE_IN: ${{ inputs.pe_strike }}
+        run: |
+          python - <<'PY'
+          import json, os
+          cfg = json.load(open("config.json"))
+          if os.environ.get("CE_IN"): cfg["ce_strike"] = float(os.environ["CE_IN"])
+          if os.environ.get("PE_IN"): cfg["pe_strike"] = float(os.environ["PE_IN"])
+          json.dump(cfg, open("config.json", "w"), indent=2); open("config.json", "a").write("\n")
+          print("config:", cfg)
+          PY
+
+      - name: Finalize the day
+        if: github.event.schedule == '20 10 * * 1-5'
+        run: python collector/capture.py --finalize
+
+      - name: Capture
+        if: github.event.schedule != '20 10 * * 1-5'
+        run: python collector/capture.py
+
+      - name: Commit data
+        run: |
+          git config user.name "pappa-collector"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data config.json
+          if git diff --staged --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "data: $(TZ=Asia/Kolkata date +'%Y-%m-%d %H:%M IST')"
+            for i in 1 2 3 4 5; do
+              git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push && break
+              echo "push retry $i"; sleep $((RANDOM % 5 + 2))
+            done
+          fi
