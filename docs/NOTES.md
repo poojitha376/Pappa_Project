@@ -38,7 +38,9 @@ Row 1 has no previous row, so cols 3,4,5,8,9,10 are blank there.
 - col 11 (paired with col 1) and col 12 (paired with col 2), rows 2+:
   price unchanged → yellow · OI↑ & price↑ → green · OI↑ & price↓ → red ·
   OI↓ & price↓ → blue · OI↓ & price↑ → purple.
-- col 1 and col 2: first cell where a continuous up/down run reverses → red.
+- rule 10a — cols 1 and 2: **every** cell where the up/down direction reverses vs the
+  previous step → red (whole day).
+- rule 10b — cols 8 and 9: same reversal test → yellow.
 
 Colours are defined in `core/compute.py`.
 

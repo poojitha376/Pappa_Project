@@ -32,10 +32,6 @@ PURPLE = "#B98BD9"
 RAW_FIELDS = ("ce_chng_oi", "pe_chng_oi", "ce_vol", "pe_vol", "ce_price", "pe_price")
 
 
-def _sign(x: float) -> int:
-    return (x > 0) - (x < 0)
-
-
 def _fmt_int(v):
     return "" if v is None else f"{round(v):,}"
 
@@ -60,8 +56,8 @@ def _ratio(a, b):
 
 def build_table(raw_rows: list[dict]) -> list[dict]:
     """raw_rows: dicts with row_index, sched_time, captured_at, status + RAW_FIELDS."""
-    n = len(raw_rows)
     out: list[dict] = []
+    series: dict[int, list] = {1: [], 2: [], 8: [], 9: []}   # col -> [(row_pos, value)]
 
     for i, r in enumerate(raw_rows):
         prev = raw_rows[i - 1] if i > 0 else None
@@ -111,6 +107,10 @@ def build_table(raw_rows: list[dict]) -> list[dict]:
             if col12c:
                 colors[12] = col12c
 
+        for col, val in ((1, c1), (2, c2), (8, c8), (9, c9)):
+            if val is not None:
+                series[col].append((i, val))
+
         out.append({
             "row_index": r["row_index"],
             "sched_time": r["sched_time"],
@@ -120,8 +120,12 @@ def build_table(raw_rows: list[dict]) -> list[dict]:
             "colors": colors,
         })
 
-    _mark_contiguity_break(raw_rows, out, "ce_chng_oi", 1)
-    _mark_contiguity_break(raw_rows, out, "pe_chng_oi", 2)
+    # rule 10a: every cell in col 1 / col 2 where the up/down direction reverses -> red
+    _mark_direction_changes(series[1], out, 1, RED)
+    _mark_direction_changes(series[2], out, 2, RED)
+    # rule 10b: same for col 8 / col 9 -> yellow
+    _mark_direction_changes(series[8], out, 8, YELLOW)
+    _mark_direction_changes(series[9], out, 9, YELLOW)
     return out
 
 
@@ -147,24 +151,19 @@ def _price_color(oi_curr, oi_prev, price_curr, price_prev):
     return None                                         # oi unchanged: unspecified
 
 
-def _mark_contiguity_break(raw_rows: list[dict], out: list[dict], field: str, col: int):
-    """Rule 10: the first cell where the monotonic run in `field` reverses -> red."""
-    pts = [(idx, r[field]) for idx, r in enumerate(raw_rows) if r.get(field) is not None]
+def _mark_direction_changes(pts: list, out: list[dict], col: int, color: str):
+    """Rule 10: colour every cell where the sequence flips inc<->dec.
+
+    `pts` is [(row_position, value), ...] for the rows that have a value in this column.
+    Direction of each step is compared with the step before it; a flip colours the row
+    at the end of the flipping step. Runs across the whole day. Ties count as "dec"
+    (per Reqs "if prev->next then inc else dec").
+    """
     if len(pts) < 3:
         return
-
-    direction = 0
-    start = None
-    for k in range(1, len(pts)):
-        s = _sign(pts[k][1] - pts[k - 1][1])
-        if s != 0:
-            direction, start = s, k
-            break
-    if start is None:
-        return
-
-    for j in range(start + 1, len(pts)):
-        s = _sign(pts[j][1] - pts[j - 1][1])
-        if s != 0 and s != direction:
-            out[pts[j][0]]["colors"][col] = RED
-            return
+    prev_up = pts[1][1] > pts[0][1]
+    for k in range(2, len(pts)):
+        up = pts[k][1] > pts[k - 1][1]
+        if up != prev_up:
+            out[pts[k][0]]["colors"][col] = color
+        prev_up = up

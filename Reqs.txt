@@ -75,17 +75,14 @@ rule 3a: if col 1; curr<prev && if col 11; curr<prev -> blue,col 11
 rule 3b: if col 2; curr<prev && if col 12; curr<prev -> blue,col 12
 rule 4a: if col 1; curr<prev && if col 11; curr>prev -> purple,col 11
 rule 4b: if col 2; curr<prev && if col 12; curr>prev -> purple,col 12
-10) Highlight in red in col 1,col 2 specific cells (one cell in col 1 an one in col 2) where 'first time' the contiguous ness(continually inc or dec pattern) is disrupted.
+10a) Highlight in red in col 1,col 2 specific cells ( cells in col 1 and cells in col 2) where the contiguous ness(continually inc or dec pattern(if prev->next then its called inc else dec)) is disrupted : meaning : For "change in OI" (of CE and PE), apply red coloring whenever the sequence changes to opposite direction; apply from 9:18 am to 15:40pm
+10b) col 8,9 also do the same thing as 10a -> highlight every cell<yellow> where the direction of monotonicity changes. 
 
 11)all these 10 above points are to be applied for data taken in a day and same changes(be it eg:colour highlights of the day) are to applied and shown as table in the dashboard and parallel updates of rows on the sheet.
 
 12) user inputs(will have placeholders):
 - strike price for CE
 - strike price for PE
-
-
-
-
 
 
 
