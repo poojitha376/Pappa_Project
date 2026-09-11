@@ -13,7 +13,8 @@ import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from core import db
+from core import db, xlsx_export
+from core.compute import build_table
 from core.schedule_times import SCHEDULE, LAST_ROW_INDEX
 from sources.sensibull import SensibullFeed, nearest_weekly_expiry
 
@@ -126,7 +127,9 @@ class Service:
     def _log(self, msg: str) -> None:
         print(f"[{datetime.now():%H:%M:%S}] scheduler: {msg}", flush=True)
 
-    def capture(self, run_id: int, row_index: int, sched_time: str) -> dict:
+    def capture(self, run_id: int, row_index: int, sched_time: str,
+                trade_date: str | None = None) -> dict:
+        trade_date = trade_date or self.today_str()
         ce, pe = self.ce_strike, self.pe_strike
         snap = self.feed.snapshot(ce, pe) if self.feed else {}
         missing = [k for k in ("ce_chng_oi", "pe_chng_oi", "ce_vol",
@@ -148,7 +151,18 @@ class Service:
             "row_index": row_index, "sched_time": sched_time, "status": status,
         }
         self._log(f"row {row_index} ({sched_time}) -> {status} {snap}")
+        self._export_xlsx(run_id, trade_date)
         return self.last_capture
+
+    def _export_xlsx(self, run_id: int, trade_date: str) -> None:
+        """Mirror the day's current table (same values, same colours the dashboard
+        shows — computed by the unchanged core.compute.build_table) into Pappa.xlsx."""
+        try:
+            raw_rows = db.raw_rows_for_run(run_id, SCHEDULE)
+            table = build_table(raw_rows)
+            xlsx_export.export_day(trade_date, table, db.list_trade_dates())
+        except Exception as exc:                            # noqa: BLE001
+            self._log(f"xlsx export failed: {exc!r}")
 
     def _ensure_run(self, trade_date: str) -> int | None:
         if self.ce_strike is None or self.pe_strike is None:
@@ -181,11 +195,12 @@ class Service:
                 if delta < 0:
                     next_dt = dt if next_dt is None else min(next_dt, dt)
                 elif delta <= CAPTURE_WINDOW:
-                    self.capture(run_id, row_index, hhmm)
+                    self.capture(run_id, row_index, hhmm, trade_date)
                     done.add(row_index)
                 else:
                     db.save_sample(run_id, row_index, hhmm, values=None,
                                    status="missed", notes="not running at scheduled time")
+                    self._export_xlsx(run_id, trade_date)
                     done.add(row_index)
 
             if next_dt is None:

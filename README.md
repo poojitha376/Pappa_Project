@@ -44,6 +44,13 @@
 
 Use the **Day** dropdown at the top of the page.
 
+## Spreadsheet
+
+Every time a row updates on the dashboard, it's also written straight into
+**`Pappa.xlsx`** in this folder — same values, same cell colours, one block per day with
+a blank row gap between days. Open it any time (close it before market hours if your
+spreadsheet program locks the file).
+
 ## Start a fresh day / clear everything
 
 Stop it (`Ctrl+C`), then delete the data file:

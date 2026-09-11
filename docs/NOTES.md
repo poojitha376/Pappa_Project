@@ -64,10 +64,22 @@ use only.
   not a break, only a reversal is.
 - Late start / laptop asleep → those rows show `missed`, no backfill.
 
-## Not built yet
+## Spreadsheet mirror (Reqs §4–11)
 
-Google Sheets mirror (Reqs §4–6). `core/compute.py` already produces everything a
-`sources/sheets.py` would need.
+`core/xlsx_export.py` writes `Pappa.xlsx` (gitignored, local only — not the paid Google
+Sheets route). It's pure presentation: takes `core.compute.build_table`'s already-computed
+rows and places them on the sheet, no calculation logic of its own.
+
+- Layout: cols A,B blank · C = date (`08-Sep`) · D = day (`Wed`) · E..Q = table cols 0..12.
+- One fixed 27-row block per trading day, stacked in date order, with a blank row between
+  days (`ROWS_PER_DAY` / `BLOCK_HEIGHT` in `xlsx_export.py`).
+- `core/service.py` calls `export_day()` right after every row is written to SQLite
+  (captured or missed) — same trigger point as the dashboard update, local mode only.
+- Not wired into the GitHub Actions collector (`collector/capture.py`) — that path writes
+  `data/<date>.json` for Pages instead.
+
+Google Sheets (a shareable link, Reqs' original ask) was deferred — needs a Google Cloud
+service account, which the user decided not to set up for now.
 
 ## Tests
 

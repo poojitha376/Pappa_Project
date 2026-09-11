@@ -1,6 +1,7 @@
 data.db
 data.db-wal
 data.db-shm
+Pappa.xlsx
 __pycache__/
 *.pyc
 .venv/

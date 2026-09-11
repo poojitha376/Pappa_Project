@@ -143,3 +143,25 @@ def captured_row_indexes(run_id: int) -> set[int]:
         (run_id,),
     ).fetchall()
     return {r["row_index"] for r in rows}
+
+
+def raw_rows_for_run(run_id: int, schedule: list[tuple[int, str]]) -> list[dict]:
+    """One dict per scheduled slot (pending if not yet captured) — the input shape
+    core.compute.build_table expects. Pure data assembly, no calculation."""
+    samples = {s["row_index"]: s for s in get_samples(run_id)}
+    rows = []
+    for row_index, hhmm in schedule:
+        s = samples.get(row_index)
+        rows.append({
+            "row_index": row_index,
+            "sched_time": hhmm,
+            "captured_at": s["captured_at"] if s else None,
+            "status": s["status"] if s else "pending",
+            "ce_chng_oi": s["ce_chng_oi"] if s else None,
+            "pe_chng_oi": s["pe_chng_oi"] if s else None,
+            "ce_vol": s["ce_vol"] if s else None,
+            "pe_vol": s["pe_vol"] if s else None,
+            "ce_price": s["ce_price"] if s else None,
+            "pe_price": s["pe_price"] if s else None,
+        })
+    return rows
