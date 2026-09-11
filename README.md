@@ -51,6 +51,24 @@ Every time a row updates on the dashboard, it's also written straight into
 a blank row gap between days. Open it any time (close it before market hours if your
 spreadsheet program locks the file).
 
+### Share it live with someone else (e.g. OneDrive)
+
+By default the spreadsheet only lives on this computer. To make it show up for someone
+else automatically:
+
+1. Pick a folder that's synced to OneDrive or Google Drive, e.g.
+   `C:\Users\<you>\OneDrive\Pappa.xlsx`.
+2. Share that file (or its folder) from OneDrive/Drive with the other person's account —
+   they can then open it in a browser (Excel Online / Google Drive preview) or their own
+   synced folder, and it updates within seconds of you saving.
+3. In `config.json`, set `"xlsx_path"` to that path. From this WSL setup, a Windows path
+   like `C:\Users\pooji\OneDrive\Pappa.xlsx` is written as
+   `/mnt/c/Users/pooji/OneDrive/Pappa.xlsx`. Example:
+   ```json
+   "xlsx_path": "/mnt/c/Users/pooji/OneDrive/Pappa.xlsx"
+   ```
+4. Restart `run.py`. Leave `"xlsx_path": null` to keep using the plain local file instead.
+
 ## Start a fresh day / clear everything
 
 Stop it (`Ctrl+C`), then delete the data file:

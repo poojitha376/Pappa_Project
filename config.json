@@ -5,5 +5,6 @@
   "port": 8000,
   "poll_seconds": 20,
   "ce_strike": 23450.0,
-  "pe_strike": 23550.0
+  "pe_strike": 23550.0,
+  "xlsx_path": null
 }

@@ -77,6 +77,10 @@ rows and places them on the sheet, no calculation logic of its own.
   (captured or missed) — same trigger point as the dashboard update, local mode only.
 - Not wired into the GitHub Actions collector (`collector/capture.py`) — that path writes
   `data/<date>.json` for Pages instead.
+- `config.json`'s `xlsx_path` (optional) overrides where the file is saved — pointing it
+  at a OneDrive/Google-Drive-synced folder makes it visible to another person near-live
+  without any cloud API/account setup. `null` (default) = plain `Pappa.xlsx` in the
+  project folder. See `export_day(..., path=...)`.
 
 Google Sheets (a shareable link, Reqs' original ask) was deferred — needs a Google Cloud
 service account, which the user decided not to set up for now.

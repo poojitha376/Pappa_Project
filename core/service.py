@@ -156,11 +156,14 @@ class Service:
 
     def _export_xlsx(self, run_id: int, trade_date: str) -> None:
         """Mirror the day's current table (same values, same colours the dashboard
-        shows — computed by the unchanged core.compute.build_table) into Pappa.xlsx."""
+        shows — computed by the unchanged core.compute.build_table) into the xlsx file.
+        `xlsx_path` in config.json can point this at a synced OneDrive/Drive folder
+        instead of the project folder."""
         try:
             raw_rows = db.raw_rows_for_run(run_id, SCHEDULE)
             table = build_table(raw_rows)
-            xlsx_export.export_day(trade_date, table, db.list_trade_dates())
+            xlsx_export.export_day(trade_date, table, db.list_trade_dates(),
+                                   path=self.cfg.get("xlsx_path") or None)
         except Exception as exc:                            # noqa: BLE001
             self._log(f"xlsx export failed: {exc!r}")
 

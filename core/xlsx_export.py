@@ -50,9 +50,9 @@ def _fmt_day(trade_date: str) -> str:
     return _date.fromisoformat(trade_date).strftime("%a")      # "Wed"
 
 
-def _load_or_create() -> Workbook:
-    if os.path.exists(XLSX_PATH):
-        return load_workbook(XLSX_PATH)
+def _load_or_create(path: str) -> Workbook:
+    if os.path.exists(path):
+        return load_workbook(path)
     wb = Workbook()
     wb.active.title = "Pappa"
     return wb
@@ -63,10 +63,15 @@ def _day_start_row(trade_date: str, known_dates: list[str]) -> int:
     return ordered.index(trade_date) * BLOCK_HEIGHT + 1
 
 
-def export_day(trade_date: str, table_rows: list[dict], known_dates: list[str]) -> None:
+def export_day(trade_date: str, table_rows: list[dict], known_dates: list[str],
+               path: str | None = None) -> None:
     """Write/refresh one day's block. `table_rows` is core.compute.build_table's
-    output for that day (list of {text, colors, ...}), already in row-1..27 order."""
-    wb = _load_or_create()
+    output for that day (list of {text, colors, ...}), already in row-1..27 order.
+    `path` overrides where the file lives (e.g. inside a synced OneDrive/Google Drive
+    folder) — defaults to Pappa.xlsx in the project folder."""
+    path = path or XLSX_PATH
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    wb = _load_or_create(path)
     ws = wb.active
     start = _day_start_row(trade_date, known_dates)
     date_str, day_str = _fmt_date(trade_date), _fmt_day(trade_date)
@@ -83,4 +88,4 @@ def export_day(trade_date: str, table_rows: list[dict], known_dates: list[str]) 
             cell.fill = (PatternFill(start_color=_argb(color), end_color=_argb(color),
                                      fill_type="solid") if color else _NO_FILL)
 
-    wb.save(XLSX_PATH)
+    wb.save(path)
