@@ -81,6 +81,16 @@ rows and places them on the sheet, no calculation logic of its own.
   at a OneDrive/Google-Drive-synced folder makes it visible to another person near-live
   without any cloud API/account setup. `null` (default) = plain `Pappa.xlsx` in the
   project folder. See `export_day(..., path=...)`.
+- A day's block position is found by **reading the xlsx file itself** (scan from row 1
+  in 28-row steps for an empty block or one already stamped with today's date) — not
+  from `data.db`. This is deliberate: it means the two stores can never fall out of
+  sync in a way that overwrites old data (e.g. wiping `data.db` per the "start a fresh
+  day" step while keeping an older `Pappa.xlsx` around is safe — the next day still
+  appends after whatever's already in the sheet).
+  Known limitation: day blocks are matched by the displayed `"DD-Mon"` string with no
+  year (per Reqs.txt's format), so reusing one Pappa.xlsx across multiple years could
+  collide on the same calendar date. Not a concern for normal use (start a fresh file
+  each season/year if it ever comes up).
 
 Google Sheets (a shareable link, Reqs' original ask) was deferred — needs a Google Cloud
 service account, which the user decided not to set up for now.

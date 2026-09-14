@@ -162,8 +162,7 @@ class Service:
         try:
             raw_rows = db.raw_rows_for_run(run_id, SCHEDULE)
             table = build_table(raw_rows)
-            xlsx_export.export_day(trade_date, table, db.list_trade_dates(),
-                                   path=self.cfg.get("xlsx_path") or None)
+            xlsx_export.export_day(trade_date, table, path=self.cfg.get("xlsx_path") or None)
         except Exception as exc:                            # noqa: BLE001
             self._log(f"xlsx export failed: {exc!r}")
 
