@@ -52,7 +52,7 @@ def _raw_rows_for(trade_date: str):
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+    return templates.TemplateResponse(request, "dashboard.html", {})
 
 
 @app.get("/api/status")
