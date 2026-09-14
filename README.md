@@ -15,6 +15,7 @@
 
 1. Open a terminal in this folder.
 2. Run: `pip install -r requirements.txt`
+   - On Windows, if `pip` isn't recognized as a command, use `python -m pip install -r requirements.txt` instead — same effect, just calls pip through Python directly.
 
 ## Run (every trading day)
 
@@ -93,4 +94,5 @@ Opens in Excel.
 
 - Status bar should say **feed live**. If it says **feed stale**, it lost the connection — it reconnects on its own; wait a minute.
 - Rows for times before you started `run.py` show **✕** (missed). That is normal; there is no way to fill them in.
+- `ModuleNotFoundError: No module named 'tzdata'` (Windows only) — Windows doesn't ship a timezone database the way Linux/Mac do, so Python needs the separate `tzdata` package. Run `python -m pip install tzdata` once, then try again. (`requirements.txt` installs this automatically on a fresh setup — this only bites if `tzdata` somehow got skipped.)
 - More detail about how it works is in `docs/NOTES.md`.
