@@ -227,7 +227,7 @@
    "row_index": 19,
    "sched_time": "13:43",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "ce_chng_oi": null,
    "pe_chng_oi": null,
    "ce_vol": null,
@@ -252,7 +252,7 @@
    "row_index": 21,
    "sched_time": "14:13",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "ce_chng_oi": null,
    "pe_chng_oi": null,
    "ce_vol": null,
@@ -264,7 +264,7 @@
    "row_index": 22,
    "sched_time": "14:28",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "ce_chng_oi": null,
    "pe_chng_oi": null,
    "ce_vol": null,
@@ -276,7 +276,7 @@
    "row_index": 23,
    "sched_time": "14:43",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "ce_chng_oi": null,
    "pe_chng_oi": null,
    "ce_vol": null,
@@ -288,7 +288,7 @@
    "row_index": 24,
    "sched_time": "14:58",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "ce_chng_oi": null,
    "pe_chng_oi": null,
    "ce_vol": null,
@@ -300,7 +300,7 @@
    "row_index": 25,
    "sched_time": "15:13",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "ce_chng_oi": null,
    "pe_chng_oi": null,
    "ce_vol": null,
@@ -312,7 +312,7 @@
    "row_index": 26,
    "sched_time": "15:28",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "ce_chng_oi": null,
    "pe_chng_oi": null,
    "ce_vol": null,
@@ -324,7 +324,7 @@
    "row_index": 27,
    "sched_time": "15:40",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "ce_chng_oi": null,
    "pe_chng_oi": null,
    "ce_vol": null,
@@ -770,7 +770,7 @@
    "row_index": 19,
    "sched_time": "13:43",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "text": {
     "0": "13:43",
     "1": "",
@@ -822,7 +822,7 @@
    "row_index": 21,
    "sched_time": "14:13",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "text": {
     "0": "14:13",
     "1": "",
@@ -846,7 +846,7 @@
    "row_index": 22,
    "sched_time": "14:28",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "text": {
     "0": "14:28",
     "1": "",
@@ -870,7 +870,7 @@
    "row_index": 23,
    "sched_time": "14:43",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "text": {
     "0": "14:43",
     "1": "",
@@ -894,7 +894,7 @@
    "row_index": 24,
    "sched_time": "14:58",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "text": {
     "0": "14:58",
     "1": "",
@@ -918,7 +918,7 @@
    "row_index": 25,
    "sched_time": "15:13",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "text": {
     "0": "15:13",
     "1": "",
@@ -942,7 +942,7 @@
    "row_index": 26,
    "sched_time": "15:28",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "text": {
     "0": "15:28",
     "1": "",
@@ -966,7 +966,7 @@
    "row_index": 27,
    "sched_time": "15:40",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "text": {
     "0": "15:40",
     "1": "",
@@ -987,5 +987,5 @@
    }
   }
  ],
- "updated_at": "2026-09-15T14:04:16+05:30"
+ "updated_at": "2026-09-15T19:21:57+05:30"
 }
