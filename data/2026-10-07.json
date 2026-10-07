@@ -299,7 +299,7 @@
    "row_index": 25,
    "sched_time": "15:13",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "ce_chng_oi": null,
    "pe_chng_oi": null,
    "ce_vol": null,
@@ -324,7 +324,7 @@
    "row_index": 27,
    "sched_time": "15:40",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "ce_chng_oi": null,
    "pe_chng_oi": null,
    "ce_vol": null,
@@ -914,7 +914,7 @@
    "row_index": 25,
    "sched_time": "15:13",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "text": {
     "0": "15:13",
     "1": "",
@@ -966,7 +966,7 @@
    "row_index": 27,
    "sched_time": "15:40",
    "captured_at": null,
-   "status": "pending",
+   "status": "missed",
    "text": {
     "0": "15:40",
     "1": "",
@@ -987,5 +987,5 @@
    }
   }
  ],
- "updated_at": "2026-10-07T15:36:02+05:30"
+ "updated_at": "2026-10-07T22:55:20+05:30"
 }
