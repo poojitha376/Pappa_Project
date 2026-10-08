@@ -4,7 +4,8 @@
   "timezone": "Asia/Kolkata",
   "port": 8000,
   "poll_seconds": 20,
-  "ce_strike": 23450.0,
-  "pe_strike": 23550.0,
+  "ce_strike": null,
+  "pe_strike": null,
+  "strikes_saved_date": null,
   "xlsx_path": null
 }

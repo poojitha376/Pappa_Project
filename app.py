@@ -13,8 +13,11 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from core import db, service
-from core.compute import build_table
+from core.compute import RAW_FIELDS, build_table
 from core.schedule_times import SCHEDULE
+from core.service import StrikesLockedError
+
+SCHED_TIME_BY_ROW = dict(SCHEDULE)
 
 BASE_DIR = os.path.dirname(__file__)
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
@@ -106,4 +109,48 @@ def api_config(cfg: ConfigIn):
     for name, val in (("ce_strike", cfg.ce_strike), ("pe_strike", cfg.pe_strike)):
         if val is not None and val <= 0:
             raise HTTPException(422, f"{name} must be positive")
-    return svc.reconfigure(cfg.ce_strike, cfg.pe_strike)
+    try:
+        return svc.reconfigure(cfg.ce_strike, cfg.pe_strike)
+    except StrikesLockedError as exc:
+        raise HTTPException(423, str(exc)) from exc
+
+
+class ManualEntryIn(BaseModel):
+    row_index: int
+    ce_chng_oi: float | None = None
+    pe_chng_oi: float | None = None
+    ce_vol: float | None = None
+    pe_vol: float | None = None
+    ce_price: float | None = None
+    pe_price: float | None = None
+
+
+@app.post("/api/manual")
+def api_manual(entry: ManualEntryIn, date: str | None = None):
+    """Fill in one row by hand — e.g. a checkpoint that passed before today's strikes
+    were saved. Goes through the same db.save_sample + core.compute.build_table path
+    as an automatic capture, so the derived columns and highlight colours are worked
+    out identically either way."""
+    svc = service.SERVICE
+    if svc is None:
+        raise HTTPException(503, "scheduler not started; run.py is not running")
+    trade_date = date or svc.today_str()
+    run = db.get_run(trade_date)
+    if run is None:
+        raise HTTPException(409, "save today's strikes before entering a row by hand")
+    sched_time = SCHED_TIME_BY_ROW.get(entry.row_index)
+    if sched_time is None:
+        raise HTTPException(422, "unknown row")
+    if trade_date == svc.today_str() and sched_time > svc.now().strftime("%H:%M"):
+        raise HTTPException(422, f"{sched_time} hasn't happened yet — it'll capture itself")
+
+    values = {f: getattr(entry, f) for f in RAW_FIELDS}
+    if all(v is None for v in values.values()):
+        raise HTTPException(422, "enter at least one value")
+    missing = [f for f, v in values.items() if v is None]
+    status = "manual" if not missing else "partial"
+
+    db.save_sample(run["id"], entry.row_index, sched_time, values=values,
+                   status=status, notes="manual entry" + (f"; missing {','.join(missing)}" if missing else ""))
+    svc.export_xlsx(run["id"], trade_date)
+    return {"ok": True, "row_index": entry.row_index, "status": status}

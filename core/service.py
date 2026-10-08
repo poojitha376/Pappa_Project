@@ -27,6 +27,10 @@ SIM_INTERVAL = 2            # seconds between rows in --simulate mode
 SERVICE: "Service | None" = None       # set by run.py; read by app.py
 
 
+class StrikesLockedError(Exception):
+    """Raised by reconfigure() once today's first row has already been captured."""
+
+
 def load_config() -> dict:
     with open(CONFIG_PATH) as f:
         return json.load(f)
@@ -61,11 +65,17 @@ class Service:
         return self.cfg.get("pe_strike")
 
     def reconfigure(self, ce_strike, pe_strike) -> dict:
+        today = self.today_str()
+        run = db.get_run(today)
+        if run is not None and db.has_captured_data(run["id"]):
+            raise StrikesLockedError(
+                "today's strikes are locked — a row has already been captured today"
+            )
         with self._lock:
             self.cfg["ce_strike"] = ce_strike
             self.cfg["pe_strike"] = pe_strike
+            self.cfg["strikes_saved_date"] = today
             save_config(self.cfg)
-        today = self.today_str()
         expiry = self._expiry_for(today)
         if ce_strike is not None and pe_strike is not None:
             db.upsert_run(today, ce_strike, pe_strike, expiry)
@@ -109,8 +119,9 @@ class Service:
             expiry,
         )
         self.feed.start()
-        if self.ce_strike is not None and self.pe_strike is not None:
-            db.upsert_run(today, self.ce_strike, self.pe_strike, expiry)
+        # No eager db.upsert_run() here: _ensure_run() is the single gate on whether a
+        # run exists for today, and it also checks strikes were saved *for today*
+        # specifically (not just leftover from a previous day).
         self._thread = threading.Thread(
             target=self._simulate_loop if self.simulate else self._scheduler_loop,
             name="scheduler", daemon=True,
@@ -151,10 +162,10 @@ class Service:
             "row_index": row_index, "sched_time": sched_time, "status": status,
         }
         self._log(f"row {row_index} ({sched_time}) -> {status} {snap}")
-        self._export_xlsx(run_id, trade_date)
+        self.export_xlsx(run_id, trade_date)
         return self.last_capture
 
-    def _export_xlsx(self, run_id: int, trade_date: str) -> None:
+    def export_xlsx(self, run_id: int, trade_date: str) -> None:
         """Mirror the day's current table (same values, same colours the dashboard
         shows — computed by the unchanged core.compute.build_table) into the xlsx file.
         `xlsx_path` in config.json can point this at a synced OneDrive/Drive folder
@@ -168,6 +179,10 @@ class Service:
 
     def _ensure_run(self, trade_date: str) -> int | None:
         if self.ce_strike is None or self.pe_strike is None:
+            return None
+        if self.cfg.get("strikes_saved_date") != trade_date:
+            # Strikes on file are leftover from a previous day — don't auto-capture
+            # with them. Waits until they're explicitly (re-)saved for *this* date.
             return None
         expiry = self._expiry_for(trade_date)
         if self.feed and expiry:
@@ -202,7 +217,7 @@ class Service:
                 else:
                     db.save_sample(run_id, row_index, hhmm, values=None,
                                    status="missed", notes="not running at scheduled time")
-                    self._export_xlsx(run_id, trade_date)
+                    self.export_xlsx(run_id, trade_date)
                     done.add(row_index)
 
             if next_dt is None:
@@ -235,13 +250,19 @@ class Service:
     # -- status ---------------------------------------------------------
 
     def status(self) -> dict:
+        today = self.today_str()
+        run = db.get_run(today)
+        strikes_saved_for_today = self.cfg.get("strikes_saved_date") == today
+        day_locked = run is not None and db.has_captured_data(run["id"])
         return {
             "now": self.now().isoformat(timespec="seconds"),
-            "trade_date": self.today_str(),
+            "trade_date": today,
             "symbol": self.cfg.get("symbol", "NIFTY"),
-            "expiry": self._expiry_cache.get(self.today_str()),
+            "expiry": self._expiry_cache.get(today),
             "ce_strike": self.ce_strike,
             "pe_strike": self.pe_strike,
+            "strikes_saved_for_today": strikes_saved_for_today,
+            "day_locked": day_locked,
             "feed_fresh": self.feed.is_fresh() if self.feed else False,
             "feed_age_s": self.feed.age_seconds() if self.feed else None,
             "lot_size": self.feed.lot_size if self.feed else None,

@@ -39,7 +39,21 @@
 1. On the page, type the CE strike in the first box and the PE strike in the second box (numbers only).
 2. Click **Save strikes**.
 3. Rows fill in on their own at each scheduled time (09:18, 09:28, 09:43, then every 15 min to 15:40).
-4. To change strikes later, type new ones and click **Save strikes** again.
+
+**Nothing is captured before you save strikes for the day** — if the dashboard was
+running before you got to it, those checkpoints just wait, they don't guess using
+yesterday's strikes. **Once the first row of the day is captured, the strikes lock** for
+the rest of that day — this stops a mid-day strike change from mixing two different
+option contracts into one table, which would make every column comparison meaningless.
+
+## Filling in a row by hand
+
+If a checkpoint's time already passed before you saved today's strikes (or you just
+want to correct one), click the **✎ / ✕** in that row's leftmost column. A prompt asks
+for the 6 numbers (CE/PE change-in-OI, CE/PE volume, CE/PE price) — enter them
+comma-separated, leave any blank to skip it. The exact same colour and derived-column
+rules run on a hand-entered row as on an automatic one. You can't fill in a row whose
+time hasn't happened yet — that one will capture itself.
 
 ## See past days
 

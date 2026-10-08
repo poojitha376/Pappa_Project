@@ -30,6 +30,11 @@
   tr.missed td.meta { color:#cf222e; }
   .legend { margin:10px 0 0; font-size:11px; color:var(--muted); display:flex; flex-wrap:wrap; gap:10px; }
   .sw { display:inline-block; width:12px; height:12px; border:1px solid #0003; vertical-align:middle; margin-right:4px; }
+  .banner { margin-top:8px; padding:6px 10px; border-radius:4px; font-size:12px; display:none; }
+  .banner.show { display:block; }
+  .banner.need { background:#fff3cd; color:#664d03; border:1px solid #ffe69c; }
+  .banner.locked { background:#e7f1ff; color:#084298; border:1px solid #b6d4fe; }
+  td.meta.fillable { color:#0969da; cursor:pointer; text-decoration:underline; text-decoration-style:dotted; }
 </style>
 </head>
 <body>
@@ -52,6 +57,7 @@
     <span id="savemsg" style="font-size:12px;color:var(--muted)"></span>
   </div>
   <div class="status" id="status"></div>
+  <div class="banner" id="banner"></div>
 </header>
 
 <div class="wrap">
@@ -60,6 +66,11 @@
     <tbody id="body"></tbody>
   </table>
   <div class="legend" id="legend"></div>
+  <div class="legend">
+    <span>● captured</span><span>◐ partial</span><span>✎ entered by hand</span>
+    <span>✕ missed</span><span>! error</span>
+    <span>· not due yet — click once its time has passed to enter it by hand</span>
+  </div>
 </div>
 
 <script>
@@ -89,6 +100,7 @@ const LEGEND = [
 
 const $ = s => document.querySelector(s);
 let strikesTouched = false;
+let nowHHMM = null;   // from the last /api/status — used to hide manual-entry on future rows
 $("#ce").addEventListener("input", () => strikesTouched = true);
 $("#pe").addEventListener("input", () => strikesTouched = true);
 
@@ -110,20 +122,44 @@ async function loadDates() {
 async function loadStatus() {
   const r = await fetch("/api/status"); const s = await r.json();
   const el = $("#status");
-  if (!s.running) { el.innerHTML = `<span><span class="dot idle"></span>${s.note||"not running"}</span>`; return; }
+  const banner = $("#banner");
+  if (!s.running) {
+    el.innerHTML = `<span><span class="dot idle"></span>${s.note||"not running"}</span>`;
+    banner.className = "banner"; banner.textContent = "";
+    return;
+  }
   let feed = s.feed_fresh ? `<span class="dot ok"></span>feed live (${s.feed_age_s ?? "?"}s ago)`
                           : `<span class="dot bad"></span>feed stale`;
   const lc = s.last_capture
     ? `row ${s.last_capture.row_index} @ ${s.last_capture.sched_time} → ${s.last_capture.status}`
     : "no captures yet";
+  nowHHMM = s.now ? s.now.slice(11, 16) : null;
   el.innerHTML = [
     `<span>${feed}</span>`,
-    `<span>IST now: ${s.now?.slice(11,16) ?? "?"}</span>`,
+    `<span>IST now: ${nowHHMM ?? "?"}</span>`,
     `<span>${s.symbol} ${s.expiry ?? "expiry ?"}${s.lot_size ? " · lot " + s.lot_size : ""}</span>`,
     `<span>strikes: CE ${s.ce_strike ?? "—"} / PE ${s.pe_strike ?? "—"}</span>`,
     `<span>last: ${lc}</span>`,
     s.simulate ? `<span><span class="dot warn"></span>SIMULATE MODE</span>` : "",
   ].join("");
+
+  // Strikes only apply once explicitly saved *for today* — until then, nothing is
+  // auto-captured (see core.service._ensure_run). Once a row lands, strikes lock for
+  // the rest of the day so a mid-day change can't mix two different contracts into
+  // one table (see core.service.reconfigure / StrikesLockedError).
+  if (!s.strikes_saved_for_today) {
+    banner.className = "banner show need";
+    banner.textContent = "Set and save today's CE/PE strikes to start collecting. "
+      + "Any checkpoint time that passes before you save will need to be filled in by hand (click its ✎).";
+  } else if (s.day_locked) {
+    banner.className = "banner show locked";
+    banner.textContent = "Today's strikes are locked (a row has already been captured) "
+      + "— they can't be changed until tomorrow.";
+  } else {
+    banner.className = "banner"; banner.textContent = "";
+  }
+  $("#ce").disabled = s.day_locked; $("#pe").disabled = s.day_locked; $("#save").disabled = s.day_locked;
+
   if (!strikesTouched) {
     if (s.ce_strike != null && $("#ce").value === "") $("#ce").value = s.ce_strike;
     if (s.pe_strike != null && $("#pe").value === "") $("#pe").value = s.pe_strike;
@@ -142,9 +178,37 @@ async function loadTable() {
       return `<td${cls}${bg}>${row.text[i] ?? ""}</td>`;
     }).join("");
     const meta = row.status === "ok" ? "●" : row.status === "partial" ? "◐"
-              : row.status === "missed" ? "✕" : row.status === "error" ? "!" : "·";
-    return `<tr class="${row.status}"><td class="meta" title="${row.status}">${meta}</td>${cells}</tr>`;
+              : row.status === "manual" ? "✎" : row.status === "missed" ? "✕"
+              : row.status === "error" ? "!" : "·";
+    const fillable = row.status === "missed"
+      || (row.status === "pending" && nowHHMM !== null && row.sched_time <= nowHHMM);
+    const metaAttrs = fillable
+      ? ` class="meta fillable" title="click to enter ${row.sched_time} by hand" onclick="promptManualEntry(${row.row_index},'${row.sched_time}')"`
+      : ` class="meta" title="${row.status}"`;
+    return `<tr class="${row.status}"><td${metaAttrs}>${meta}</td>${cells}</tr>`;
   }).join("");
+}
+
+async function promptManualEntry(rowIndex, schedTime) {
+  const raw = prompt(
+    `Row ${schedTime} — enter 6 values, comma-separated, leave any blank to skip it:\n`
+    + `CE chng-in-OI, PE chng-in-OI, CE volume, PE volume, CE price, PE price`
+  );
+  if (raw === null) return;
+  const keys = ["ce_chng_oi", "pe_chng_oi", "ce_vol", "pe_vol", "ce_price", "pe_price"];
+  const parts = raw.split(",").map(s => s.trim());
+  const body = { row_index: rowIndex };
+  keys.forEach((k, i) => {
+    const v = parts[i];
+    body[k] = (v === undefined || v === "") ? null : Number(v);
+  });
+  const d = $("#date").value;
+  const r = await fetch("/api/manual" + (d ? `?date=${encodeURIComponent(d)}` : ""), {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { alert("Couldn't save that row: " + (j.detail || r.status)); return; }
+  loadTable();
 }
 
 async function refresh() {

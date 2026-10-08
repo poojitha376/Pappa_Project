@@ -138,11 +138,23 @@ def get_samples(run_id: int) -> list[sqlite3.Row]:
 
 
 def captured_row_indexes(run_id: int) -> set[int]:
+    """Rows the scheduler should leave alone — already captured, missed, or filled in
+    manually. 'manual' is included so the scheduler never overwrites a hand-entered row."""
     rows = _conn().execute(
-        "SELECT row_index FROM samples WHERE run_id = ? AND status IN ('ok','partial','missed')",
+        "SELECT row_index FROM samples WHERE run_id = ? AND status IN ('ok','partial','missed','manual')",
         (run_id,),
     ).fetchall()
     return {r["row_index"] for r in rows}
+
+
+def has_captured_data(run_id: int) -> bool:
+    """True once at least one row holds real data (auto or manual) — used to lock the
+    day's strikes after the first row lands, so they can't be changed mid-day."""
+    row = _conn().execute(
+        "SELECT 1 FROM samples WHERE run_id = ? AND status IN ('ok','partial','manual') LIMIT 1",
+        (run_id,),
+    ).fetchone()
+    return row is not None
 
 
 def raw_rows_for_run(run_id: int, schedule: list[tuple[int, str]]) -> list[dict]:
